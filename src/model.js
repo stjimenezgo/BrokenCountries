@@ -9,7 +9,7 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const sigmoid = (x) => 1 / (1 + Math.exp(-x));
 const sum = (a) => a.reduce((x, y) => x + y, 0);
 
-export const regionFactor = (r, sens = 1) => (r.infra ** -P.phiInfra * r.hc ** -P.phiHc * r.sec ** -P.phiSec) ** sens;
+export const regionFactor = (r, sens = 1) => (r.infra ** -P.phiInfra * r.hc ** -P.phiHc * r.sec ** -P.phiSec * r.health ** -P.phiHealth) ** sens;
 export const marketWage = (r) => Math.sqrt(r.hc);
 const growthFactor = (w) => (1 + P.gM) ** w.t;
 
@@ -28,17 +28,19 @@ function newFirm(w, sector, region, A) {
 }
 
 // Costo marginal: capital (sensible al costo de financiarse), trabajo (salario mínimo,
-// prestaciones, parafiscales), costo esperado de ser informal y trámites.
+// prestaciones, parafiscales), costo esperado de ser informal, trámites y robos/extorsión.
+// Las epidemias y las huelgas encarecen temporalmente todo lo que se produce en la región.
 function firmCost(w, f) {
   const S = SECTORS[f.sector], r = w.regions[f.region], pol = w.policy;
-  const base = (regionFactor(r, S.regionSens) / f.A) * (S.unitCost ?? 1);
+  const base = (regionFactor(r, S.regionSens) / f.A) * (S.unitCost ?? 1) * (1 + r.sick + w.macro.strike);
   const mw = Math.max(1, pol.minWage / marketWage(r));
   const lc = (1 - f.e) * mw * (1 + P.nonWageCost + pol.payrollTax) + f.e;
   const enf = enforcementCost(w);
   const unit = (1 - S.lambda) * (1 + S.kappa * (userCost(r.rcap, pol.corpTax * (1 - f.e)) - P.rRef))
     + (S.lambda * lc) / P.lcRef
     + enf * f.e + 0.5 * P.inf.theta * f.e * f.e
-    + P.regCost * pol.regulation;
+    + P.regCost * pol.regulation
+    + P.crime.theft * r.crime;
   f.base = base;
   f.mw = mw;
   return base * unit;
@@ -103,7 +105,7 @@ export function createWorld({ seed = 1, policy = {} } = {}) {
     seed, rng, t: 0, nextId: 1, nextLenderId: 1,
     // El año base siempre se calibra con la política de referencia; la del jugador se aplica después.
     policy: { ...DEFAULT_POLICY },
-    regions: REGIONS.map((r, idx) => ({ ...r, idx, infra0: r.infra, hc0: r.hc, sec0: r.sec, d: 1, u: P.targetUnemployment, informality: 0, lf: r.pop, lfShare: r.pop, income: 1, income0: 1, rcap: 0.06, Mserv: 0, firms: 0 })),
+    regions: REGIONS.map((r, idx) => ({ ...r, idx, infra0: r.infra, hc0: r.hc, sec0: r.sec, health0: r.health, fire: 1, crimeBase: 1.3 - r.sec, crime: 1.3 - r.sec, sick: 0, d: 1, u: P.targetUnemployment, informality: 0, lf: r.pop, lfShare: r.pop, income: 1, income0: 1, rcap: 0.06, Mserv: 0, firms: 0 })),
     firms: [], relocated: [], sectors: {}, markets: {},
     macro: {
       cpi: 1, fx: 1, fxReal: 1, worldCpi: 1, commodityLog: 0, commodity: 1, prevCommodity: 1, rf: P.rf0,
@@ -111,10 +113,11 @@ export function createWorld({ seed = 1, policy = {} } = {}) {
       realWage: 1, approval: 0.45, gdpReal: 1, gdpTrendReal: 1, gdpHist: [], deficitGDP: 0.05,
       policyVol: 0, taxShock: 0, creditCrunch: 0, fxShockNext: 0, lastDep: 0, prevSpread: 0.022, monetQ: 0,
       lowStreak: 0, uNat: P.targetUnemployment, growthYoY: 0,
+      strike: 0, strikeKind: null, grievance: 0,
     },
-    exec: {}, austerity: 0,
+    exec: {}, austerity: 0, settlement: 0, fireEvents: [],
     calib: { laborScale: [], logA0: {}, otherRev: 0, formal0: 0.5, K0: {}, display: 1 },
-    flow: { entries: 0, exits: 0, relocations: 0 }, totals: { entries: 0, exits: 0, relocations: 0 },
+    flow: { entries: 0, exits: 0, relocations: 0, fires: 0 }, totals: { entries: 0, exits: 0, relocations: 0, fires: 0 },
     hist: [], events: [], outcome: { default: null, lostElection: null, estallido: null },
     policyHist: [], lenders: [], debt: null,
   };
@@ -172,9 +175,7 @@ export function createWorld({ seed = 1, policy = {} } = {}) {
     w.calib.logA0[k] = inc.length ? sum(inc.map((f) => Math.log(f.A))) / inc.length : 0;
   }
   let fl = accounting(w);
-  const ex = w.exec;
-  const govShare = ex.infra + ex.education + ex.security + ex.enforcement + ex.competition + 0.5 * P.inflexibleSpending;
-  w.macro.gdpTrendReal = fl.privVA / (1 - govShare);
+  w.macro.gdpTrendReal = fl.privVA / (1 - govShare(w.exec));
   fl = accounting(w);
   w.macro.gdpReal = fl.gdpReal;
   w.macro.gdpHist = [fl.gdpReal, fl.gdpReal, fl.gdpReal, fl.gdpReal];
@@ -215,6 +216,18 @@ function calibrateImports(w) {
   }
 }
 
+// Parte del gasto que es valor agregado del Estado (salarios de maestros, policías, médicos...).
+function govShare(ex) {
+  return ex.infra + ex.education + ex.security + ex.enforcement + ex.competition + 0.5 * (ex.health + ex.fire + P.inflexibleSpending);
+}
+
+// Prioridad de inversión por región: reparte el gasto regional sin cambiar el total.
+function focusWeights(w) {
+  const f = w.regions.map((r) => w.policy.focus?.[r.id] ?? 1);
+  const norm = sum(w.regions.map((r, i) => r.pop * f[i]));
+  return f.map((x) => x / norm);
+}
+
 function execSpending(w) {
   const e = {};
   for (const k of SPEND_KEYS) e[k] = w.policy[k] * (k === 'enforcement' || k === 'competition' ? 1 : 1 - w.austerity);
@@ -237,6 +250,7 @@ export function step(w) {
   const fl = accounting(w);
   government(w, fl);
   updateMacro(w, fl);
+  updateStrikes(w);
   updateRegions(w, fl);
   firmDynamics(w);
   updateBarriers(w);
@@ -402,8 +416,7 @@ function accounting(w) {
     fl.tariff += (pol.tariff / (1 + pol.tariff)) * sec.importBill;
     fl.vat += pol.vat * sec.price * sec.importQ * P.consShare;
   }
-  const govShare = ex.infra + ex.education + ex.security + ex.enforcement + ex.competition + 0.5 * P.inflexibleSpending;
-  fl.govVA = govShare * m.gdpTrendReal;
+  fl.govVA = govShare(ex) * m.gdpTrendReal;
   fl.gdpReal = fl.privVA + fl.govVA;
   w.regions.forEach((r, i) => {
     fl.pubWages[i] = fl.govVA * 0.6 * r.pop;
@@ -423,7 +436,9 @@ function government(w, fl) {
   const gdpN = fl.gdpReal * cpi, trendN = m.gdpTrendReal * cpi;
   const seized = d.pledged && d.status !== 'normal' ? fl.royalty : 0;
   const revenue = (fl.taxReal - seized) * cpi;
-  const disc = (ex.transfers + ex.infra + ex.education + ex.security) * trendN;
+  const settle = w.settlement * trendN;
+  w.settlement = 0;
+  const disc = (ex.transfers + ex.infra + ex.education + ex.security + ex.health + ex.fire) * trendN + settle;
   const fixedSp = (ex.enforcement + ex.competition + P.inflexibleSpending) * trendN;
   const monet = pol.monetization * trendN;
   let interest = Debt.interestDue(w);
@@ -448,7 +463,7 @@ function government(w, fl) {
   if (aust > 0.02) w.log('fiscal', `Recorte de emergencia del ${Math.round(aust * 100)}% del gasto discrecional: no alcanza el financiamiento.`);
   if (forced > 0.002 * gdpN) w.log('fiscal', 'El banco central imprime dinero para pagar lo que el mercado no financia.');
   w.austerity = Math.max(w.austerity * 0.5, aust);
-  if (aust > 0) for (const k of ['transfers', 'infra', 'education', 'security']) ex[k] *= 1 - aust;
+  if (aust > 0) for (const k of ['transfers', 'infra', 'education', 'security', 'health', 'fire']) ex[k] *= 1 - aust;
   fl.cpi = cpi;
   fl.gdpN = gdpN;
   fl.revenue = revenue;
@@ -490,7 +505,7 @@ function updateMacro(w, fl) {
 }
 
 function updateRegions(w, fl, calibrating = false) {
-  const m = w.macro, ex = w.exec, g = growthFactor(w);
+  const m = w.macro, ex = w.exec, g = growthFactor(w), a = focusWeights(w), rng = w.rng;
   const income = (r, i) => (fl.wages[i] + fl.pubWages[i]) * m.realWage + fl.transfers[i] + fl.profitsHH[i];
   const natRatio = sum(w.regions.map(income)) / sum(w.regions.map((r) => r.yTrend));
   w.regions.forEach((r, i) => {
@@ -508,10 +523,25 @@ function updateRegions(w, fl, calibrating = false) {
     r.yTrend = (1 - P.trendSpeed) * r.yTrend * (1 + P.gM) + P.trendSpeed * r.income;
     const ratio = 0.5 * (r.income / r.yTrend) + 0.5 * natRatio;
     r.d = clamp(0.8 * r.d + 0.2 * (1 + P.incomeElasticity * (ratio - 1)), 0.6, 1.4);
-    r.infra += P.infraSpeed * (r.infra0 * Math.sqrt(ex.infra / P.spendRef.infra) - r.infra);
-    r.hc += P.hcSpeed * (r.hc0 * Math.sqrt(ex.education / P.spendRef.education) - r.hc);
-    r.sec += P.secSpeed * (r.sec0 * Math.sqrt(ex.security / P.spendRef.security) - r.sec);
-    r.sec = clamp(r.sec, 0.05, 1.2);
+    // Los bienes públicos se acercan lentamente a lo que el gasto (y su reparto regional) puede sostener.
+    const reach = (k) => Math.sqrt((ex[k] * a[i]) / P.spendRef[k]);
+    r.infra += P.infraSpeed * (r.infra0 * reach('infra') - r.infra);
+    r.hc += P.hcSpeed * (r.hc0 * reach('education') - r.hc);
+    r.sec = clamp(r.sec + P.secSpeed * (r.sec0 * reach('security') - r.sec), 0.05, 1.2);
+    r.health = clamp(r.health + P.healthSpeed * (r.health0 * reach('health') - r.health), 0.05, 1.3);
+    r.fire = clamp(r.fire + P.fireSpeed * (reach('fire') - r.fire), 0.02, 1.6);
+    // Crimen: sube con desempleo y pobreza, baja con policía y justicia.
+    const C = P.crime;
+    const crimeT = r.crimeBase * (r.u / r.u0) ** C.eU * (m.poverty / P.poverty0) ** C.ePov * (r.sec0 / r.sec) ** C.eSec;
+    const before = r.crime;
+    r.crime = clamp(r.crime + C.speed * (crimeT - r.crime), 0.05, 3);
+    if (r.crime > 1.25 * r.crimeBase && before <= 1.25 * r.crimeBase) w.log('social', `Ola de robos y extorsión en ${r.name}: producir allí sale más caro.`);
+    // Epidemias: más probables donde el sistema de salud está débil.
+    r.sick *= P.epidemic.decay;
+    if (rng.next() < P.epidemic.p0 * (r.health0 / r.health) ** 3) {
+      r.sick += P.epidemic.hit;
+      w.log('social', `Brote epidémico en ${r.name}: hospitales saturados y trabajadores enfermos.`);
+    }
   });
   if (!calibrating) {
     // Migración interna lenta hacia regiones con menos desempleo.
@@ -527,7 +557,7 @@ function updateRegions(w, fl, calibrating = false) {
 // Entrada, salida, informalidad, productividad y relocalización de empresas.
 function firmDynamics(w) {
   const rng = w.rng;
-  const flow = (w.flow = { entries: 0, exits: 0, relocations: 0 });
+  const flow = (w.flow = { entries: 0, exits: 0, relocations: 0, fires: 0 });
   const relocBySector = {};
   for (const k of SECTOR_KEYS) Object.assign(w.sectors[k], { entries: 0, exits: 0, relocs: 0 });
   const keep = [];
@@ -541,6 +571,13 @@ function firmDynamics(w) {
     if (S.kind === 'commodity') f.cap *= 1 - P.depletion;
     f.A *= Math.exp(P.growthHc * (r.hc - 0.85) + P.growthInfra * (r.infra - 0.8) + 0.006 * rng.normal());
     if (f.lossStreak >= P.exitStreak || rng.next() < P.firmDeath) { sec.exits++; flow.exits++; continue; }
+    // Incendios: sin bomberos suficientes, una empresa puede perderlo todo.
+    if (rng.next() < Math.min(P.fireRisk.max, P.fireRisk.p0 / r.fire ** 2)) {
+      sec.exits++; flow.exits++; flow.fires++;
+      w.fireEvents.push({ t: w.t, id: f.id, region: f.region, sector: f.sector });
+      w.log('social', `Incendio en ${r.name}: una empresa de ${SECTORS[f.sector].name.toLowerCase()} queda destruida.`);
+      continue;
+    }
     if (S.kind === 'tradable' && rng.next() < relocationProb(w, f)) {
       sec.relocs++;
       flow.relocations++;
@@ -559,6 +596,8 @@ function firmDynamics(w) {
   w.totals.entries += flow.entries;
   w.totals.exits += flow.exits;
   w.totals.relocations += flow.relocations;
+  w.totals.fires += flow.fires;
+  w.fireEvents = w.fireEvents.filter((e) => w.t - e.t < 8);
 }
 
 // Entrantes potenciales: entran si el valor esperado después de entrar supera la barrera.
@@ -617,6 +656,28 @@ function updateBarriers(w) {
   }
 }
 
+// Huelgas: el malestar acumulado (salario real que cae, inflación, recortes, impuestos nuevos)
+// puede convertirse en un paro que encarece toda la producción hasta que se negocia o se agota.
+function updateStrikes(w) {
+  const m = w.macro, S = P.strike;
+  const g = 8 * Math.max(0, 1 - m.realWage) + 5 * Math.max(0, m.inflA - 0.05) + 4 * w.austerity
+    + 3 * Math.max(0, 0.4 - m.approval) + 3 * m.taxShock;
+  m.grievance = 0.6 * m.grievance + 0.4 * g;
+  if (m.strike > 0.005) {
+    m.strike *= S.decay;
+    if (m.strike <= 0.005) { m.strike = 0; w.log('social', `Se levanta el ${m.strikeKind}.`); }
+    return;
+  }
+  m.strike = 0;
+  if (w.rng.next() < S.pmax * sigmoid((m.grievance - S.mid) / S.width)) {
+    m.strike = 0.04 + 0.04 * Math.min(1, m.grievance);
+    m.strikeKind = w.austerity > 0.1 ? 'paro de maestros y trabajadores de la salud'
+      : m.taxShock > 0.03 ? 'paro camionero contra los impuestos nuevos'
+      : m.grievance > 1 ? 'paro nacional' : 'paro sindical';
+    w.log('social', `Empieza un ${m.strikeKind}: la producción se encarece ${Math.round(m.strike * 100)}%.`);
+  }
+}
+
 function updateApproval(w, fl) {
   const m = w.macro, ex = w.exec, d = w.debt;
   const lf = sum(w.regions.map((r) => r.lf));
@@ -626,13 +687,18 @@ function updateApproval(w, fl) {
   m.informality = sum(w.regions.map((r) => r.informality * r.lf)) / lf;
   // Pobreza monetaria: sube con desempleo, informalidad e inflación; baja con transferencias.
   m.poverty = clamp(P.poverty0 + 0.9 * (m.uNat - P.targetUnemployment) + 0.4 * (m.informality - w.calib.informality0)
-    + 0.3 * Math.max(0, m.inflA - 0.04) - 2.5 * (ex.transfers - 0.07) - 0.5 * (m.realWage - 1), 0.05, 0.8);
+    + 0.3 * Math.max(0, m.inflA - 0.04) - 2.5 * (ex.transfers - 0.07) - 0.5 * (m.realWage - 1)
+    - 1.0 * (ex.health - 0.03) + 0.5 * sum(w.regions.map((r) => r.sick * r.pop)), 0.05, 0.8);
+  m.crimeIdx = sum(w.regions.map((r) => r.crime * r.pop)) / sum(w.regions.map((r) => r.crimeBase * r.pop));
   const x = -10 * (m.uNat - P.targetUnemployment)
     - 6 * (m.poverty - P.poverty0)
     - 5 * (m.inflA - 0.04)
     + 4 * (m.growthYoY - 0.025)
     + 4 * (ex.transfers - 0.07)
     + 3 * (ex.infra + ex.education + ex.security - 0.09)
+    + 4 * (ex.health - 0.03)
+    - 1.0 * (m.crimeIdx - 1)
+    - 4 * m.strike
     - 5 * m.taxShock
     - 4 * w.austerity
     - (d.status === 'default' ? 0.6 : 0);
@@ -694,6 +760,10 @@ function record(w, fl, initial = false) {
     rcap: sum(w.regions.map((r) => r.rcap * r.pop)),
     policyVol: m.policyVol,
     austerity: w.austerity,
+    crime: m.crimeIdx ?? 1,
+    strike: m.strike,
+    fires: w.flow.fires ?? 0,
+    sick: sum(w.regions.map((r) => r.sick * r.pop)),
   };
   if (prev && prev.rating !== row.rating && row.rating !== 'D') {
     const order = ['A-', 'BBB', 'BB+', 'BB-', 'B', 'CCC', 'CC', 'D'];
@@ -723,6 +793,17 @@ export const actions = {
   defaultNow: (w) => Debt.declareDefault(w, 'el gobierno decide dejar de pagar.'),
   restructure: (w, haircut) => Debt.restructure(w, haircut),
   settleHoldouts: (w) => Debt.settleHoldouts(w),
+  // Negociar con los sindicatos: se levanta el paro a cambio de un pago único y un alza del mínimo.
+  negotiateStrike: (w) => {
+    if (w.macro.strike <= 0) return false;
+    w.settlement += P.strike.settle;
+    w.policy.minWage = Math.min(1.3, w.policy.minWage + 0.02);
+    w.macro.realWage = Math.min(1.1, w.macro.realWage + 0.02);
+    w.macro.strike = 0;
+    w.macro.grievance *= 0.3;
+    w.log('social', `Acuerdo con los sindicatos: se levanta el ${w.macro.strikeKind} (pago único y +2% al salario mínimo).`);
+    return true;
+  },
 };
 
 export { Debt };

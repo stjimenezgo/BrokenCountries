@@ -147,6 +147,8 @@ td.good { color: var(--ok); font-weight: 600; }
 #events li.politica { border-color: var(--accent); }
 #events li.externo { border-color: #26a69a; }
 #events li.fiscal { border-color: #ab47bc; }
+#events li.social { border-color: #ec407a; }
+.brand .sub a { color: var(--accent); }
 
 .doc { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 28px; max-width: 920px; line-height: 1.6; }
 .doc h1 { font-size: 24px; margin: 0 0 12px; }

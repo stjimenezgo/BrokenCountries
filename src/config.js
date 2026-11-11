@@ -3,18 +3,18 @@
 
 export const SECTOR_KEYS = ['agro', 'manufactura', 'tecnologia', 'servicios', 'mineria'];
 export const TAX_KEYS = ['corpTax', 'vat', 'payrollTax', 'royalty', 'tariff'];
-export const SPEND_KEYS = ['transfers', 'infra', 'education', 'security', 'enforcement', 'competition'];
+export const SPEND_KEYS = ['transfers', 'infra', 'education', 'security', 'health', 'fire', 'enforcement', 'competition'];
 
 // Regiones de Colombia (estilizadas). pop = participación en la población,
-// infra/hc/sec = índices de infraestructura, capital humano y seguridad (Andina = 1),
+// infra/hc/sec/health = índices de infraestructura, capital humano, seguridad y salud (Andina = 1),
 // res = dotación de recursos naturales, u0 = desempleo del año base.
 export const REGIONS = [
-  { id: 'caribe',      name: 'Caribe',                   u0: 0.110, pop: 0.22, infra: 0.70, hc: 0.75, sec: 0.60, res: 0.45 },
-  { id: 'antioquia',   name: 'Antioquia y Eje Cafetero', u0: 0.090, pop: 0.19, infra: 0.90, hc: 0.95, sec: 0.70, res: 0.35 },
-  { id: 'andina',      name: 'Andina (Bogotá)',          u0: 0.095, pop: 0.34, infra: 1.00, hc: 1.00, sec: 0.80, res: 0.15 },
-  { id: 'santanderes', name: 'Santanderes',              u0: 0.090, pop: 0.07, infra: 0.80, hc: 0.85, sec: 0.65, res: 0.50 },
-  { id: 'pacifico',    name: 'Pacífico',                 u0: 0.130, pop: 0.14, infra: 0.65, hc: 0.75, sec: 0.50, res: 0.25 },
-  { id: 'llanos',      name: 'Orinoquía y Amazonía',     u0: 0.120, pop: 0.04, infra: 0.45, hc: 0.65, sec: 0.45, res: 1.00 },
+  { id: 'caribe',      name: 'Caribe',                   u0: 0.110, pop: 0.22, infra: 0.70, hc: 0.75, sec: 0.60, res: 0.45, health: 0.75 },
+  { id: 'antioquia',   name: 'Antioquia y Eje Cafetero', u0: 0.090, pop: 0.19, infra: 0.90, hc: 0.95, sec: 0.70, res: 0.35, health: 0.90 },
+  { id: 'andina',      name: 'Andina (Bogotá)',          u0: 0.095, pop: 0.34, infra: 1.00, hc: 1.00, sec: 0.80, res: 0.15, health: 1.00 },
+  { id: 'santanderes', name: 'Santanderes',              u0: 0.090, pop: 0.07, infra: 0.80, hc: 0.85, sec: 0.65, res: 0.50, health: 0.85 },
+  { id: 'pacifico',    name: 'Pacífico',                 u0: 0.130, pop: 0.14, infra: 0.65, hc: 0.75, sec: 0.50, res: 0.25, health: 0.60 },
+  { id: 'llanos',      name: 'Orinoquía y Amazonía',     u0: 0.120, pop: 0.04, infra: 0.45, hc: 0.65, sec: 0.45, res: 1.00, health: 0.55 },
 ];
 
 // kind: tradable = mercado nacional que compite con importaciones (Cournot),
@@ -59,8 +59,9 @@ export const RATINGS = [
 export const DEFAULT_POLICY = {
   corpTax: 0.35, vat: 0.19, payrollTax: 0.09, royalty: 0.08, tariff: 0.08,
   minWage: 0.95, regulation: 0.5, competition: 0.0005,
-  transfers: 0.07, infra: 0.025, education: 0.045, security: 0.02, enforcement: 0.003,
+  transfers: 0.07, infra: 0.025, education: 0.045, security: 0.02, health: 0.03, fire: 0.002, enforcement: 0.003,
   monetization: 0, pledge: false, cac: true, autopilot: true,
+  focus: {},  // prioridad de inversión por región (1 = según población)
 };
 
 export const P = {
@@ -75,7 +76,7 @@ export const P = {
   trendSpeed: 0.08,      // qué tan rápido el ingreso "normal" se ajusta al observado
   consShare: 0.45,       // fracción de las ventas que es consumo final (base del IVA)
   // productividad regional
-  phiInfra: 0.08, phiHc: 0.08, phiSec: 0.04,
+  phiInfra: 0.08, phiHc: 0.08, phiSec: 0.04, phiHealth: 0.04,
   // costos
   nonWageCost: 0.35,     // prestaciones (prima, cesantías, salud, pensión) sin contar parafiscales
   lcRef: 1.44,
@@ -91,10 +92,15 @@ export const P = {
   reloc: { hmax: 0.10, threshold: 0.15, width: 0.05 },
   cap: { spreadPass: 0.7, policyVol: 0.4, security: 0.03 },
   // regiones
-  infraSpeed: 0.03, hcSpeed: 0.012, secSpeed: 0.08,
-  spendRef: { infra: 0.025, education: 0.045, security: 0.02 },
+  infraSpeed: 0.03, hcSpeed: 0.012, secSpeed: 0.08, healthSpeed: 0.04, fireSpeed: 0.1,
+  spendRef: { infra: 0.025, education: 0.045, security: 0.02, health: 0.03, fire: 0.002 },
+  // vida urbana: crimen, incendios, epidemias y huelgas
+  crime: { theft: 0.015, speed: 0.3, eU: 0.5, ePov: 0.5, eSec: 1.0 },
+  fireRisk: { p0: 0.0008, max: 0.04 },
+  epidemic: { p0: 0.008, hit: 0.06, decay: 0.6 },
+  strike: { pmax: 0.25, mid: 0.6, width: 0.12, decay: 0.75, settle: 0.01 },
   // fiscal
-  inflexibleSpending: 0.055,
+  inflexibleSpending: 0.023,  // pensiones, nómina y otros gastos que no se pueden mover
   targetRevenue: 0.225,
   targetUnemployment: 0.105,
   initialDebtGDP: 0.55, multiShare: 0.12, fxShare: 0.35, maturityQ: 24,
@@ -119,7 +125,9 @@ export const LEVERS = [
   { key: 'transfers', group: 'Gasto (% del PIB)', label: 'Transferencias y subsidios', min: 0, max: 0.15, step: 0.005, unit: 'pib', help: 'Sube ingreso y aprobación, baja la pobreza.' },
   { key: 'infra', group: 'Gasto (% del PIB)', label: 'Infraestructura', min: 0, max: 0.08, step: 0.0025, unit: 'pib', help: 'Baja costos de las empresas, con rezago de años.' },
   { key: 'education', group: 'Gasto (% del PIB)', label: 'Educación', min: 0, max: 0.09, step: 0.0025, unit: 'pib', help: 'Sube el capital humano muy lentamente (más que un periodo de gobierno).' },
-  { key: 'security', group: 'Gasto (% del PIB)', label: 'Seguridad y justicia', min: 0, max: 0.05, step: 0.0025, unit: 'pib', help: 'Baja la prima de riesgo de invertir en las regiones.' },
+  { key: 'security', group: 'Gasto (% del PIB)', label: 'Policía y justicia', min: 0, max: 0.05, step: 0.0025, unit: 'pib', help: 'Baja el crimen y la prima de riesgo de invertir en las regiones.' },
+  { key: 'health', group: 'Gasto (% del PIB)', label: 'Salud', min: 0, max: 0.08, step: 0.0025, unit: 'pib', help: 'Hospitales: menos epidemias, trabajadores más productivos y menos pobreza.' },
+  { key: 'fire', group: 'Gasto (% del PIB)', label: 'Bomberos y gestión del riesgo', min: 0, max: 0.006, step: 0.0005, unit: 'pib', help: 'Menos incendios que destruyen empresas.' },
   { key: 'enforcement', group: 'Gasto (% del PIB)', label: 'Fiscalización (DIAN)', min: 0, max: 0.01, step: 0.0005, unit: 'pib', help: 'Encarece la evasión, con rendimientos decrecientes.' },
   { key: 'monetization', group: 'Deuda y dinero', label: 'Emisión para financiar al gobierno', min: 0, max: 0.06, step: 0.0025, unit: 'pib', help: 'Plata sin deuda... pagada con inflación.' },
 ];

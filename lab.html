@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Broken Countries · Laboratorio</title>
+  <meta name="description" content="Simulador por agentes de la economía de un país latino: empresas, regiones, impuestos, deuda y prestamistas.">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Broken Countries</h1>
+      <span class="sub">laboratorio del modelo · <a href="index.html">volver al juego</a></span>
+    </div>
+    <div class="controls">
+      <button id="btn-play" class="primary">▶ Jugar</button>
+      <button id="btn-step">Paso</button>
+      <button id="btn-reset">Reiniciar</button>
+      <label class="inline">Velocidad <input id="speed" type="range" min="1" max="10" value="4"></label>
+      <label class="inline">Semilla <input id="seed" type="number" value="1" min="1" class="num"></label>
+    </div>
+    <div class="clock">
+      <span id="clock-t">Año 0 · T0</span>
+      <span id="clock-status" class="chip">Normal</span>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <div class="layout">
+    <aside class="side">
+      <section class="panel">
+        <h2>Tu perfil</h2>
+        <label class="field">¿Cómo te defines políticamente?
+          <select id="ideology">
+            <option value="">Prefiero no decir</option>
+            <option value="izquierda">Izquierda</option>
+            <option value="centro-izquierda">Centro-izquierda</option>
+            <option value="centro">Centro</option>
+            <option value="centro-derecha">Centro-derecha</option>
+            <option value="derecha">Derecha</option>
+          </select>
+        </label>
+        <label class="field">Cargar un paquete de política
+          <select id="preset"></select>
+        </label>
+        <p id="preset-desc" class="hint"></p>
+      </section>
+      <section class="panel" id="levers"></section>
+      <section class="panel" id="toggles"></section>
+      <section class="panel" id="crisis-panel">
+        <h2>Deuda en crisis</h2>
+        <p id="crisis-text" class="hint">Sin crisis.</p>
+        <div class="crisis-actions">
+          <button id="btn-default" class="danger">Declarar default</button>
+          <label class="field">Quita ofrecida <span id="haircut-val">40%</span>
+            <input id="haircut" type="range" min="0.1" max="0.8" step="0.05" value="0.4">
+          </label>
+          <button id="btn-restructure">Ofrecer reestructuración</button>
+          <button id="btn-settle">Pagar a los holdouts</button>
+        </div>
+      </section>
+      <section class="panel">
+        <button id="btn-export">Exportar partida (JSON)</button>
+        <p class="hint">Guarda tu perfil, tus decisiones y el resultado. Con muchas partidas se puede medir la "tasa de países quebrados" por ideología.</p>
+      </section>
+    </aside>
+
+    <main class="main">
+      <nav class="tabs" id="tabs">
+        <button data-tab="sim" class="active">País</button>
+        <button data-tab="scp">Estructura · Conducta · Desempeño</button>
+        <button data-tab="debt">Deuda y prestamistas</button>
+        <button data-tab="laffer">Curva de Laffer</button>
+        <button data-tab="mc">Tasa de países quebrados</button>
+        <button data-tab="doc">Modelo matemático</button>
+      </nav>
+
+      <section class="tab" id="tab-sim">
+        <div class="kpis" id="kpis"></div>
+        <div class="map-wrap">
+          <div class="map" id="map"></div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="grid2">
+          <div class="card"><h3>Deuda, spread y riesgo</h3><canvas id="ch-debt"></canvas></div>
+          <div class="card"><h3>Recaudo por impuesto y déficit (% del PIB)</h3><canvas id="ch-rev"></canvas></div>
+          <div class="card"><h3>Desempleo, informalidad, pobreza e inflación</h3><canvas id="ch-social"></canvas></div>
+          <div class="card"><h3>Aprobación y PIB</h3><canvas id="ch-approval"></canvas></div>
+        </div>
+      </section>
+
+      <section class="tab" id="tab-scp" hidden>
+        <p class="lead">El paradigma Estructura–Conducta–Desempeño visto a escala país: la <b>estructura</b> (número de empresas, concentración, barreras, importaciones) condiciona la <b>conducta</b> (cuánto producen, si entran, salen, se informalizan, se van o cabildean) y eso define el <b>desempeño</b> (márgenes, precios, empleo, recaudo). Las políticas mueven la estructura, y los incumbentes con márgenes altos presionan por más barreras.</p>
+        <div class="table-wrap"><table id="scp-table"></table></div>
+        <div class="grid2">
+          <div class="card"><h3>Empresas activas por sector</h3><canvas id="ch-firms"></canvas></div>
+          <div class="card"><h3>Entradas, salidas y relocalizaciones por trimestre</h3><canvas id="ch-flows"></canvas></div>
+          <div class="card"><h3>Índice de Lerner (margen sobre precio)</h3><canvas id="ch-lerner"></canvas></div>
+          <div class="card"><h3>Barrera de entrada (trimestres de ventas)</h3><canvas id="ch-barrier"></canvas></div>
+        </div>
+      </section>
+
+      <section class="tab" id="tab-debt" hidden>
+        <p class="lead">Cada prestamista estima su propia probabilidad de default y tiene su apetito de riesgo. El spread es el mínimo que hace que alguien quiera tener toda la deuda. Cuando los conservadores se llenan o la calificación cae, el spread sube y <b>aparecen otros que valoran el riesgo distinto</b>: hedge funds y, después, fondos buitre que compran barato y litigan.</p>
+        <div class="grid2">
+          <div class="card"><h3>¿Quién tiene la deuda?</h3><canvas id="ch-lenders"></canvas></div>
+          <div class="card"><h3>Spread vs. probabilidad de default percibida</h3><canvas id="ch-spread"></canvas></div>
+        </div>
+        <div class="card"><h3>Prestamistas activos</h3><div class="table-wrap"><table id="lender-table"></table></div></div>
+      </section>
+
+      <section class="tab" id="tab-laffer" hidden>
+        <p class="lead">La curva de Laffer no está programada: <b>emerge</b>. Para cada tasa se corre la economía varios años y se mide el recaudo cuando las empresas ya respondieron (informalidad, salida, relocalización al vecino). Luego se ajusta una parábola <span class="math" data-tex="R(\tau)=a\tau+b\tau^2"></span>, cuyo pico está en <span class="math" data-tex="\tau^*=-a/2b"></span>.</p>
+        <div class="row">
+          <label class="field">Impuesto
+            <select id="laffer-key">
+              <option value="corpTax">Renta de empresas</option>
+              <option value="vat">IVA</option>
+              <option value="payrollTax">Parafiscales</option>
+              <option value="royalty">Regalías</option>
+              <option value="tariff">Arancel</option>
+            </select>
+          </label>
+          <label class="field">Semillas <input id="laffer-seeds" type="number" min="1" max="10" value="3" class="num"></label>
+          <button id="btn-laffer" class="primary">Correr barrido</button>
+          <div class="progress"><div id="laffer-progress"></div></div>
+        </div>
+        <p class="hint">Usa tus palancas actuales como base y cambia solo el impuesto elegido.</p>
+        <div class="card"><canvas id="ch-laffer"></canvas><p id="laffer-result" class="result"></p></div>
+      </section>
+
+      <section class="tab" id="tab-mc" hidden>
+        <p class="lead">Cada paquete de política se juega muchas veces con choques distintos (precio del petróleo, tasas de la Fed, suerte de las empresas). La pregunta de Edwin: <b>¿cuál es la tasa de países quebrados?</b> Los paquetes se describen por lo que hacen, no por su etiqueta ideológica.</p>
+        <div class="row">
+          <label class="field">Partidas por paquete <input id="mc-runs" type="number" min="5" max="200" value="40" class="num"></label>
+          <label class="field">Trimestres <input id="mc-q" type="number" min="8" max="80" value="32" class="num"></label>
+          <label class="inline"><input id="mc-custom" type="checkbox" checked> Incluir mi política actual</label>
+          <button id="btn-mc" class="primary">Correr Monte Carlo</button>
+          <div class="progress"><div id="mc-progress"></div></div>
+        </div>
+        <div class="card"><canvas id="ch-mc"></canvas></div>
+        <div class="table-wrap"><table id="mc-table"></table></div>
+        <div class="card">
+          <h3>¿Qué palanca pesa más?</h3>
+          <p class="hint">Aplica una por una las palancas del paquete sobre el statu quo y mide cuánto cambia la tasa de default.</p>
+          <div class="row">
+            <select id="ablate-key"></select>
+            <button id="btn-ablate">Descomponer</button>
+            <div class="progress"><div id="ablate-progress"></div></div>
+          </div>
+          <div class="table-wrap"><table id="ablate-table"></table></div>
+        </div>
+      </section>
+
+      <section class="tab" id="tab-doc" hidden>
+        <article id="doc" class="doc">Cargando…</article>
+      </section>
+    </main>
+
+    <aside class="events">
+      <h2>Bitácora</h2>
+      <ol id="events"></ol>
+    </aside>
+  </div>
+
+  <script type="module" src="src/ui.js"></script>
+</body>
+</html>

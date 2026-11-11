@@ -15,7 +15,7 @@ Un país estilizado parecido a Colombia, con seis regiones, cinco sectores y un 
 5. **Gobierno.** Ingresos menos gastos menos intereses da el déficit, que hay que financiar.
 6. **Mercado de deuda.** Prestamistas heterogéneos deciden cuánto prestar y a qué spread. Si no alcanza, hay recortes de emergencia o default.
 7. **Macro.** Se actualizan inflación, tipo de cambio y salario real.
-8. **Regiones.** Empleo, informalidad de subsistencia, migración interna, demanda, infraestructura, capital humano y seguridad.
+8. **Regiones.** Empleo, informalidad de subsistencia, migración interna, demanda, infraestructura, capital humano, seguridad y salud, más la vida urbana: crimen, incendios, epidemias y huelgas.
 9. **Dinámica industrial.** Empresas que se informalizan, salen, se mudan al vecino o entran, e incumbentes que cabildean por barreras.
 10. **Política.** Aprobación, pobreza, elecciones y estallido social.
 
@@ -29,7 +29,7 @@ El juego no tiene una solución analítica cerrada. Las regularidades (la curva 
 | Empresas extranjeras | 3–6 por sector transable | Venden importaciones (compiten en Cournot) |
 | Empresas relocalizadas | Las que se fueron | Venden desde el vecino, pagando arancel |
 | Prestamistas | ~17 al inicio (entran y salen) | Cuánta deuda soberana tener según su riesgo percibido |
-| Regiones | 6 | Empleo, migración, demanda, infraestructura, capital humano, seguridad |
+| Regiones | 6 | Empleo, migración, demanda, infraestructura, capital humano, seguridad, salud, crimen, bomberos |
 | Gobierno (jugador) | 1 | 14 palancas, 3 reglas de deuda y acciones de crisis |
 
 ## 2. Notación y unidades
@@ -39,13 +39,13 @@ Un periodo $t$ es un trimestre. Las cantidades del lado real están en unidades 
 - $k$: sector (agro, manufactura, tecnología, servicios, minería). $r$: región. $i$: empresa. $j$: prestamista.
 - $\tau_c,\ \tau_v,\ \tau_w,\ \tau_s,\ t_m$: renta empresarial, IVA, parafiscales, regalías y arancel.
 - $\bar w$: salario mínimo relativo al salario de mercado nacional. $R$: índice de trámites (0–1).
-- $G^{T}, G^{I}, G^{H}, G^{S}, G^{E}, G^{C}$: transferencias, infraestructura, educación, seguridad, fiscalización y autoridad de competencia, todas en % del PIB.
+- $G^{T}, G^{I}, G^{H}, G^{S}, G^{M}, G^{F}, G^{E}, G^{C}$: transferencias, infraestructura, educación, policía y justicia, salud, bomberos, fiscalización y autoridad de competencia, todas en % del PIB.
 
 ## 3. Regiones
 
-Cada región tiene población $n_r$, infraestructura $I_r$, capital humano $H_r$, seguridad $S_r$ (Andina = 1) y recursos naturales. Su desventaja de costos es
+Cada región tiene población $n_r$, infraestructura $I_r$, capital humano $H_r$, seguridad $S_r$, salud $M_r$ (Andina = 1) y recursos naturales. Su desventaja de costos es
 
-$$\phi_r = I_r^{-0.08}\, H_r^{-0.08}\, S_r^{-0.04}$$
+$$\phi_r = I_r^{-0.08}\, H_r^{-0.08}\, S_r^{-0.04}\, M_r^{-0.04}$$
 
 y el salario de mercado regional es $\omega_r = \sqrt{H_r}$. El salario mínimo es nacional, así que **muerde más en las regiones pobres**: el sobrecosto del mínimo en la región $r$ es
 
@@ -57,7 +57,37 @@ Los bienes públicos convergen lentamente hacia un nivel que depende del gasto:
 
 $$I_{r,t+1} = I_{r,t} + \alpha_I\left(I_{r,0}\sqrt{G^I/\bar G^I} - I_{r,t}\right),\qquad \alpha_I = 0.03$$
 
-Lo mismo vale para $H_r$ con educación ($\alpha_H = 0.012$, es decir, décadas) y para $S_r$ con seguridad ($\alpha_S = 0.08$). **La educación paga después de que el gobierno que la financió ya se fue.**
+Lo mismo vale para $H_r$ con educación ($\alpha_H = 0.012$, es decir, décadas), para $S_r$ con policía y justicia ($\alpha_S = 0.08$), para $M_r$ con salud ($\alpha_M = 0.04$) y para la capacidad de bomberos $F_r$ ($\alpha_F = 0.1$, con $F_{r,0}=1$). **La educación paga después de que el gobierno que la financió ya se fue.**
+
+**Prioridad regional.** El jugador puede darle a una región un peso $f_r$ (1 por defecto). El gasto en infraestructura, policía, salud y bomberos se reparte con
+
+$$a_r = \frac{f_r}{\sum_s n_s f_s},\qquad G^{X}_r = a_r\, G^{X},$$
+
+así que el total no cambia: lo que gana una región lo pierde el resto. En la ecuación de convergencia, $G^X$ se reemplaza por $G^X_r$.
+
+### 3.1 Vida urbana: crimen, incendios, epidemias y huelgas
+
+Son los sistemas que en SimCity se ven en el mapa. Aquí cada uno entra a las cuentas de las empresas o de los hogares.
+
+**Crimen.** Cada región tiene un crimen de base $K_{r,0} = 1.3 - S_{r,0}$ (más alto donde la seguridad inicial es menor). El crimen se mueve hacia
+
+$$K^*_r = K_{r,0}\left(\frac{u_r}{u_{r,0}}\right)^{0.5}\left(\frac{\text{pob}}{\text{pob}_0}\right)^{0.5}\left(\frac{S_{r,0}}{S_r}\right),\qquad K_{r,t+1} = K_{r,t} + 0.3\,(K^*_r - K_{r,t}).$$
+
+Sube con el desempleo y la pobreza y baja con policía y justicia. Robos y extorsión le cuestan a cada empresa $c_K K_r$ por unidad ($c_K = 0.015$), y el crimen resta aprobación. **El crimen no se arregla solo con policía:** si sube el desempleo, sube aunque el gasto en seguridad no cambie.
+
+**Incendios.** Cada trimestre, cada empresa se incendia y desaparece con probabilidad
+
+$$p^{fuego}_r = \min\left(0.04,\ \frac{0.0008}{F_r^2}\right).$$
+
+Con el gasto de referencia ($F_r=1$) son unos 3 incendios cada 8 años en todo el país; sin bomberos, la probabilidad se dispara.
+
+**Epidemias.** En cada región aparece un brote con probabilidad $0.008\,(M_{r,0}/M_r)^3$ por trimestre. Un brote sube los costos de producir en la región un 6% ($\sigma_r$), se desvanece al 60% por trimestre y sube la pobreza.
+
+**Huelgas.** El malestar acumula
+
+$$g_t = 8\max(0, 1-\text{salario real}) + 5\max(0, \pi-0.05) + 4\,\text{recortes} + 3\max(0, 0.4-\text{aprob}) + 3\,\text{alzas}$$
+
+(suavizado: $\bar g_t = 0.6\bar g_{t-1} + 0.4 g_t$). Un paro empieza con probabilidad $0.25\,\sigma\big((\bar g - 0.6)/0.12\big)$ y encarece toda la producción en $h_t = 0.04 + 0.04\min(1,\bar g)$, que se desvanece al 75% por trimestre. Si el gobierno **negocia**, el paro termina a cambio de un pago único de 1% del PIB trimestral y +2% al salario mínimo, que a su vez sube la informalidad en las regiones pobres. El tipo de paro depende de la causa: de maestros y médicos si hubo recortes, camionero si hubo impuestos nuevos, nacional si el malestar es muy alto.
 
 ## 4. Empresas: costos
 
@@ -65,7 +95,9 @@ Lo mismo vale para $H_r$ con educación ($\alpha_H = 0.012$, es decir, décadas)
 
 Para la empresa $i$ del sector $k$ en la región $r$, con productividad $A_i$:
 
-$$c_i = \underbrace{\frac{\phi_r^{s_k}\,u_k}{A_i}}_{b_i}\Big[(1-\lambda_k)\big(1+\kappa_k(\rho_i - \bar r)\big) + \lambda_k\frac{\ell_i}{\bar\ell} + \underbrace{\varepsilon(E)\,e_i + \tfrac{\theta}{2}e_i^2}_{\text{costo esperado de evadir}} + c_R\,R\Big]$$
+$$c_i = \underbrace{\frac{\phi_r^{s_k}\,u_k\,(1+\sigma_r+h_t)}{A_i}}_{b_i}\Big[(1-\lambda_k)\big(1+\kappa_k(\rho_i - \bar r)\big) + \lambda_k\frac{\ell_i}{\bar\ell} + \underbrace{\varepsilon(E)\,e_i + \tfrac{\theta}{2}e_i^2}_{\text{costo esperado de evadir}} + c_R\,R + c_K K_r\Big]$$
+
+- $\sigma_r$ es el sobrecosto de una epidemia en la región, $h_t$ el de una huelga y $K_r$ el crimen (sección 3.1).
 
 - $\lambda_k$ es el peso del trabajo, $\kappa_k$ la intensidad de capital y $s_k$ qué tanto le importa la región al sector (al agro poco, a la manufactura mucho).
 - $e_i \in [0, \bar e_k]$ es la fracción informal de la empresa.
@@ -188,7 +220,7 @@ $$T = \underbrace{\sum_i \tau_c(1-e_i)(1-\psi_k)\pi_i^+}_{\text{renta}} + \under
 
 $T^{otros}$ (renta de personas, predial, GMF y demás) se calibra para que el recaudo del año base sea 22,5% del PIB, y luego se mueve con la formalidad.
 
-**Gastos.** Transferencias, infraestructura, educación, seguridad, fiscalización y competencia, más un gasto inflexible de 5,5% del PIB (pensiones y funcionamiento), todo como % del PIB tendencial, más los intereses.
+**Gastos.** Transferencias, infraestructura, educación, policía y justicia, salud (3%), bomberos (0,2%), fiscalización y competencia, más un gasto inflexible de 2,3% del PIB (pensiones y funcionamiento), todo como % del PIB tendencial, más los intereses y los pagos únicos para levantar huelgas. Salud, bomberos y gasto inflexible suman lo mismo que el antiguo 5,5% de gasto inflexible, así que el año base no cambia.
 
 **Déficit y financiamiento.**
 
@@ -265,9 +297,11 @@ El salario real se erosiona con la inflación por encima de la meta y se recuper
 
 ## 12. Política: aprobación, pobreza y estallido
 
-$$\text{pobreza}_t = 0.33 + 0.9(u - 0.105) + 0.4(\text{inf} - \text{inf}_0) + 0.3\max(0, \pi - 0.04) - 2.5(G^T - 0.07) - 0.5(\text{salario real} - 1)$$
+$$\text{pobreza}_t = 0.33 + 0.9(u - 0.105) + 0.4(\text{inf} - \text{inf}_0) + 0.3\max(0, \pi - 0.04) - 2.5(G^T - 0.07) - 0.5(\text{salario real} - 1) - (G^M - 0.03) + 0.5\,\bar\sigma$$
 
-$$x_t = -10(u-0.105) - 6(\text{pob}-0.33) - 5(\pi-0.04) + 4(\Delta\ln Y - 0.025) + 4(G^T-0.07) + 3(G^I+G^H+G^S-0.09) - 5\,\text{alzas}_t - 4\,\text{recortes}_t - 0.6\,\mathbb 1[\text{default}]$$
+$$x_t = -10(u-0.105) - 6(\text{pob}-0.33) - 5(\pi-0.04) + 4(\Delta\ln Y - 0.025) + 4(G^T-0.07) + 3(G^I+G^H+G^S-0.09) + 4(G^M - 0.03) - (\bar K - 1) - 4h_t - 5\,\text{alzas}_t - 4\,\text{recortes}_t - 0.6\,\mathbb 1[\text{default}]$$
+
+donde $\bar\sigma$ es la epidemia promedio ponderada por población y $\bar K$ el crimen relativo al de base.
 
 $$\text{aprob}_{t+1} = 0.75\,\text{aprob}_t + 0.25\,\big(0.45 + 0.33\tanh x_t\big)$$
 
@@ -314,25 +348,27 @@ Lo que es **supuesto**: casi todo lo demás. Las elasticidades más influyentes 
 
 ## 15. Resultados preliminares: tasa de países quebrados
 
-Son 60 partidas de 8 años por paquete, con los mismos choques para todos los paquetes. Las tasas cuentan si el evento ocurrió al menos una vez.
+Son 200 partidas de 8 años por paquete, con los mismos choques para todos los paquetes. Las tasas cuentan si el evento ocurrió al menos una vez.
 
 | Paquete | Default | Estallido | Pierde elecciones | Deuda final | Informalidad | Pobreza |
 |---|---|---|---|---|---|---|
-| Statu quo | 13% | 12% | 67% | 63% | 55% | 34% |
-| Más impuestos y más gasto | 100% | 100% | 73% | 64% | 63% | 35% |
-| Estado grande con base formal | 32% | 23% | 40% | 64% | 49% | 29% |
-| Estado mínimo | 0% | 3% | 75% | 29% | 42% | 36% |
-| Populismo fiscal | 100% | 100% | 100% | 76% | 66% | 45% |
-| Consolidación ortodoxa | 0% | 25% | 95% | 34% | 52% | 37% |
-| Pro-inversión estable | 2% | 5% | 42% | 48% | 44% | 32% |
-| Reforma tributaria cada año | 75% | 90% | 98% | 49% | 57% | 38% |
+| Statu quo | 24% | 35% | 80% | 62% | 55% | 35% |
+| Más impuestos y más gasto | 100% | 100% | 86% | 65% | 63% | 35% |
+| Estado grande con base formal | 26% | 21% | 40% | 64% | 50% | 29% |
+| Estado mínimo | 0% | 22% | 78% | 29% | 42% | 37% |
+| Populismo fiscal | 100% | 100% | 100% | 74% | 66% | 44% |
+| Consolidación ortodoxa | 0% | 51% | 97% | 36% | 52% | 37% |
+| Pro-inversión estable | 0% | 8% | 42% | 46% | 44% | 33% |
+| Reforma tributaria cada año | 84% | 98% | 99% | 50% | 57% | 39% |
+
+Con crimen, incendios, epidemias y huelgas, el statu quo quiebra en 24% de las partidas. Sin esos sistemas (versión anterior, con 100 partidas) quebraba en 18%. Los choques de la vida urbana no quiebran un país sano, pero empujan a uno que ya tiene un déficit de 3% del PIB.
 
 Cómo leerla:
 
-- **No hay un ganador limpio.** Lo que evita el default (consolidación, Estado mínimo) suele perder elecciones o subir la pobreza. Lo que más baja la pobreza (Estado grande con base formal) quiebra a uno de cada tres países.
+- **No hay un ganador limpio.** Lo que evita el default (consolidación, Estado mínimo) suele perder elecciones o subir la pobreza. La consolidación ortodoxa, además, provoca estallidos en la mitad de las partidas: los recortes desatan paros y el desempleo sube el crimen. Lo que más baja la pobreza (Estado grande con base formal) quiebra a uno de cada cuatro países.
 - **Cómo se financia importa más que cuánto.** "Más impuestos y más gasto" y "Estado grande con base formal" gastan parecido. El primero sube nómina y salario mínimo, y la base se le va a la informalidad.
 - **La inestabilidad cuesta por sí sola.** Cambiar impuestos cada año, sin subirlos en promedio, quiebra al país 3 de cada 4 veces: sube el costo de capital y el riesgo percibido.
-- La pestaña *¿Qué palanca pesa más?* descompone cada paquete. Por ejemplo, subir transferencias 2,5 puntos del PIB sin financiarlas lleva por sí solo la tasa de default de 13% a cerca de 90%.
+- La pestaña *¿Qué palanca pesa más?* descompone cada paquete. Por ejemplo, subir transferencias 2,5 puntos del PIB sin financiarlas lleva por sí solo la tasa de default de 24% a 90%.
 
 Estos números dependen de los parámetros. El punto no es el número exacto, sino **por qué** sale.
 
@@ -347,14 +383,36 @@ Estos números dependen de los parámetros. El punto no es el número exacto, si
 7. **Las CAC no blindan contra buitres que compran más de 25%.**
 8. **La educación es la mejor inversión que ningún gobierno alcanza a cobrar.**
 9. **Emitir para financiarse sale caro dos veces:** por la inflación y por la deuda en dólares que se infla con la devaluación.
+10. **Recortar salud y policía para cuadrar la caja sale caro:** suben las epidemias y el crimen, que encarecen producir, y los recortes desatan paros. Lo que se ahorra en gasto se pierde en base gravable.
+11. **Negociar una huelga cuesta más que el pago:** el alza del mínimo empuja informalidad en las regiones pobres por años.
 
 ## 17. Limitaciones y siguientes pasos
 
 - **Calibración seria:** estimar $\theta$, la respuesta de la informalidad al mínimo y a la nómina, con microdatos (GEIH, PILA) y la sensibilidad del spread con datos de EMBI.
-- **Agentes que faltan:** el FMI (prestamista condicionado), bancos locales que caen junto con el soberano (*doom loop*), sindicatos y gremios como agentes políticos, y el Congreso como veto.
+- **Agentes que faltan:** el FMI (prestamista condicionado), bancos locales que caen junto con el soberano (*doom loop*), gremios como agentes políticos y el Congreso como veto. Los sindicatos hoy son una regla de malestar, no agentes que negocian.
 - **Expectativas:** hoy los agentes son adaptativos y ninguno anticipa la política futura.
-- **Juego:** la capa isométrica (tipo SimCity) puede leer el estado directamente de `w.regions`, `w.firms` y `w.lenders`.
+- **Juego:** la capa isométrica (`index.html`) dibuja cada empresa de `w.firms` como un edificio. Faltan zonificación, transporte y contaminación, que son lo propio de SimCity (sección 18).
 - **Experimento de creencias:** la exportación JSON ya guarda la ideología declarada y la trayectoria de palancas. Con un backend, se podría medir la tasa de países quebrados por ideología declarada y cómo cambian las decisiones de un jugador después de varias partidas.
+
+## 18. SimCity y este modelo: en qué se parecen y en qué no
+
+La interfaz se parece a SimCity a propósito: presupuesto con partidas, leyes, bonos, capas del mapa, periódico e indicador de demanda. El motor es otra cosa.
+
+| | SimCity (1989–2013) | Broken Countries |
+|---|---|---|
+| Qué simula | Una ciudad: suelo, tráfico, contaminación, servicios | Un país: mercados, empresas, fisco, deuda, política |
+| Quién decide | El jugador construye y zonifica; la ciudad responde con reglas | El jugador solo fija políticas; miles de decisiones de agentes producen el resultado |
+| Los agentes | Autómatas celulares y "sims" sin objetivos: siguen reglas de vecindad | Empresas que maximizan utilidades (Cournot), eligen informalidad, entran, salen o se van; prestamistas que eligen cartera |
+| Impuestos | Subirlos baja la demanda RCI con una curva programada a mano | La caída del recaudo **emerge** de informalidad, inversión, traslado de utilidades y relocalización |
+| Precios | No hay: la demanda es un índice | Precios, márgenes y concentración salen del equilibrio de mercado |
+| Deuda | Bonos a tasa fija según la deuda; nunca hay default | Spread que sale de prestamistas heterogéneos, rating, default, buitres y holdouts |
+| Economía abierta | Ciudades vecinas como comercio simple | Importaciones, tipo de cambio, deuda en dólares y un vecino que compite por las empresas |
+| Política | El alcalde no pierde elecciones | Aprobación, elecciones cada 4 años y estallido social |
+| Espacio | Su fuerte: cada baldosa importa (tráfico, valor del suelo, contaminación) | Débil: el mapa es una vista de 6 regiones; la ubicación exacta de cada edificio no afecta nada |
+
+**La diferencia de fondo.** SimCity es un modelo **de reglas**: el diseñador decide de antemano cómo responde la demanda a un impuesto o a un parque. Este es un modelo **de decisiones**: el diseñador decide qué quiere cada agente y qué restricciones tiene, y la respuesta agregada (la curva de Laffer, el techo de deuda, la ola de informalidad) aparece sola. Por eso aquí se puede hacer la pregunta de Edwin y contestarla con una frecuencia: en SimCity un país no puede quebrar.
+
+**Lo que SimCity tiene y aquí falta:** la geografía fina. Zonificar, construir vías y ubicar hospitales en una baldosa precisa no existe todavía; la "prioridad de inversión" por región es la versión gruesa. Llevar el modelo a baldosas sería el siguiente paso si se quiere que el mapa sea parte de la economía y no solo su vista.
 
 ## Referencias de los mecanismos
 
