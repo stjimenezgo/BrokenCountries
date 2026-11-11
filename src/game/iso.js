@@ -89,10 +89,28 @@ export class IsoView {
 
   bindInput() {
     const c = this.canvas;
-    let drag = null;
-    c.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y, moved: false }; c.setPointerCapture(e.pointerId); });
+    let drag = null, pinch = null;
+    const pts = new Map();   // dedos activos, para el pellizco
+    const pinchState = () => {
+      const [a, b] = [...pts.values()], r = c.getBoundingClientRect();
+      return { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2 - r.left, my: (a.y + b.y) / 2 - r.top };
+    };
+    c.addEventListener('pointerdown', (e) => {
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      try { c.setPointerCapture(e.pointerId); } catch { /* puntero sintético */ }
+      if (pts.size === 2) { pinch = pinchState(); drag = null; return; }
+      if (pts.size === 1) drag = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y, moved: false };
+    });
     c.addEventListener('pointermove', (e) => {
       const r = c.getBoundingClientRect();
+      if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch && pts.size === 2) {
+        const p = pinchState();
+        this.zoomAt(p.mx, p.my, p.d / pinch.d);
+        this.cam.x += p.mx - pinch.mx; this.cam.y += p.my - pinch.my;
+        pinch = p;
+        return;
+      }
       if (drag) {
         const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
         if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
@@ -101,21 +119,37 @@ export class IsoView {
       this.hoverTile = this.pick(e.clientX - r.left, e.clientY - r.top);
       this.onHover?.(this.hoverTile, e.clientX - r.left, e.clientY - r.top);
     });
-    c.addEventListener('pointerup', (e) => {
+    const release = (e) => {
       const r = c.getBoundingClientRect();
-      if (drag && !drag.moved) {
+      pts.delete(e.pointerId);
+      if (pinch) {
+        // Al soltar un dedo del pellizco, el otro sigue arrastrando sin saltos ni clics.
+        pinch = null;
+        const rest = [...pts.values()][0];
+        drag = rest ? { x: rest.x, y: rest.y, cx: this.cam.x, cy: this.cam.y, moved: true } : null;
+        return;
+      }
+      if (e.type === 'pointerup' && drag && !drag.moved) {
         const t = this.pick(e.clientX - r.left, e.clientY - r.top);
         this.onSelect?.(t?.region ?? null);
       }
-      drag = null;
-    });
+      if (!pts.size) drag = null;
+    };
+    c.addEventListener('pointerup', release);
+    c.addEventListener('pointercancel', release);
     c.addEventListener('pointerleave', () => { this.hoverTile = null; this.onHover?.(null); });
     c.addEventListener('wheel', (e) => {
       e.preventDefault();
       const r = c.getBoundingClientRect();
-      this.zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.0015));
+      // El pellizco del trackpad llega como rueda con ctrlKey y deltas pequeños.
+      this.zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
     }, { passive: false });
   }
+
+  // Zoom con botones o teclado, centrado en la pantalla.
+  zoomBy(k) { this.zoomAt(this.vw / 2, this.vh / 2, k); }
+
+  recenter() { this.autoFit = true; this.fit(); }
 
   zoomAt(sx, sy, k) {
     const z = Math.max(0.35, Math.min(3.5, this.cam.z * k));

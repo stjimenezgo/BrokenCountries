@@ -92,6 +92,10 @@ a { color: var(--blue); }
 .g-legend .grad { height: 8px; border-radius: 4px; margin: 3px 0; background: linear-gradient(90deg, rgb(46,139,87), rgb(240,200,60), rgb(214,69,52)); }
 .g-legend .ends { display: flex; justify-content: space-between; }
 
+.g-zoom { position: absolute; left: 234px; bottom: 12px; display: flex; flex-direction: column; overflow: hidden; z-index: 2; }
+.g-zoom button { width: 34px; height: 34px; border: 0; background: none; color: var(--ink); font-size: 18px; line-height: 1; cursor: pointer; }
+.g-zoom button + button { border-top: 1px solid var(--edge); }
+.g-zoom button:hover { background: var(--edge); }
 .g-region { position: absolute; right: 12px; top: 12px; width: 280px; max-height: calc(100% - 24px); overflow: auto; padding: 12px; }
 .g-region h2 { margin: 0 0 2px; font-size: 16px; }
 .g-region .sub { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
@@ -186,6 +190,8 @@ td.neg { color: var(--bad); } td.pos { color: var(--ok); }
   .g-layer-btns button { flex: 0 0 auto; }
   .g-toasts { width: auto; left: 8px; right: 8px; bottom: 64px; }
   .g-region { left: 12px; right: 12px; width: auto; top: auto; bottom: 12px; max-height: 50%; }
+  .g-zoom { left: auto; right: 8px; top: 8px; bottom: auto; }
+  .g-zoom button { width: 40px; height: 40px; }
   .g-alerts { width: calc(100% - 24px); min-width: 0; top: auto; bottom: 12px; }
   .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   table.bud td.ctl { width: 150px; }

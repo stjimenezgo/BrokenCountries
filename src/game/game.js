@@ -518,11 +518,20 @@ function init() {
     setSpeed(2);
   });
   addEventListener('keydown', (e) => {
-    if (e.target.matches('input, select')) return;
+    if (e.target.matches?.('input, select')) return;
     if (e.code === 'Space') { e.preventDefault(); setSpeed(G.speed ? 0 : G.resume); }
     if (e.key === 'Escape') closeWins();
     const k = { b: 'budget', l: 'laws', d: 'debt', g: 'charts', p: 'news' }[e.key.toLowerCase()];
     if (k) openWin(k);
+    if (e.key === '+' || e.key === '=') iso.zoomBy(1.25);
+    if (e.key === '-') iso.zoomBy(0.8);
+    if (e.key === '0') iso.recenter();
+  });
+  $('.g-zoom').addEventListener('click', (e) => {
+    const z = e.target.closest('button')?.dataset.zoom;
+    if (z === 'in') iso.zoomBy(1.25);
+    else if (z === 'out') iso.zoomBy(0.8);
+    else if (z === 'fit') iso.recenter();
   });
 
   iso.onSelect = (id) => { G.selected = iso.selected = id; renderRegion(); };
