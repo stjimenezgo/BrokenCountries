@@ -1,0 +1,9 @@
+{
+  "name": "broken-countries",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sim": "node tools/headless.js",
+    "serve": "node tools/serve.js 8080"
+  }
+}
