@@ -269,6 +269,14 @@ $$s_t^* = \min\Big\{s \in [0, 0.4] : \sum_j w_j(s)\,W_j\,Y_t \ \ge\ B_t + \text{
 
 Si ni con 40% alcanza, el faltante es lo que no se pudo refinanciar. Cuando la nota cae, los mandatos recortan la demanda de los conservadores de golpe: el **precipicio del grado de inversión**.
 
+### 9.3.1 El colchón: la señal que avisa antes del precipicio
+
+El spread puede estar tranquilo justo antes de la crisis, porque mide el precio, no cuánta demanda queda. Por eso el modelo calcula el **colchón del mercado**: cuánto compraría el mercado, aun al spread máximo, frente a lo que hay que financiar,
+
+$$c_t = \frac{\sum_j w_j(0.4)\,W_j\,Y_t}{B_t + \text{necesidad}_t}, \qquad c^-_t = c_t \text{ evaluado con una nota menos}.$$
+
+Con $c_t < 1$ el mercado se cierra. La señal temprana es $c^-_t < 1$: el país está **a una nota del precipicio**. En las partidas del statu quo que terminan en default, $c^-_t$ pasa por debajo de 100% años antes, mientras el spread sigue en 4–5%. El asesor de crédito público del juego vigila esta serie.
+
 ### 9.4 El techo que se mueve
 
 Los prestamistas entran según un proceso de Poisson cuya tasa crece con el spread:
@@ -279,6 +287,7 @@ y su tipo depende del spread: con spreads bajos entran locales y globales, con s
 
 ## 10. Default, fondos buitre y reestructuración
 
+- **Antes del default, un puente:** cuando el mercado se cierra, el multilateral presta de emergencia (como la línea de crédito flexible que Colombia tiene con el FMI) hasta 4% del PIB y por 2 trimestres. Lo que no cubra se recorta del gasto discrecional (hasta 40%). Si se acaba el puente y el mercado sigue cerrado, hay default. El puente se recupera de a poco cuando el mercado vuelve a prestar.
 - **En default:** no se pagan intereses de mercado, que se acumulan como mora. El tipo de cambio salta 20%, el crédito privado se encarece 6 puntos (que se disipan 15% por trimestre) y el déficit primario se cubre con recortes o emisión.
 - **Ventas forzadas:** cada trimestre, locales y globales venden 30% de sus bonos a 30 centavos por dólar a hedge funds y buitres, según la capacidad de estos.
 - **Oferta de reestructuración** con quita $h$: el prestamista $j$ acepta si $1 - h \ge R_j$. A los locales la paciencia se les agota y su $R_j$ baja 1,5 puntos por trimestre de default.
@@ -352,23 +361,23 @@ Son 200 partidas de 8 años por paquete, con los mismos choques para todos los p
 
 | Paquete | Default | Estallido | Pierde elecciones | Deuda final | Informalidad | Pobreza |
 |---|---|---|---|---|---|---|
-| Statu quo | 24% | 35% | 80% | 62% | 55% | 35% |
-| Más impuestos y más gasto | 100% | 100% | 86% | 65% | 63% | 35% |
-| Estado grande con base formal | 26% | 21% | 40% | 64% | 50% | 29% |
+| Statu quo | 18% | 34% | 79% | 64% | 55% | 35% |
+| Más impuestos y más gasto | 100% | 100% | 93% | 65% | 64% | 38% |
+| Estado grande con base formal | 20% | 21% | 39% | 66% | 50% | 29% |
 | Estado mínimo | 0% | 22% | 78% | 29% | 42% | 37% |
-| Populismo fiscal | 100% | 100% | 100% | 74% | 66% | 44% |
+| Populismo fiscal | 100% | 100% | 100% | 80% | 66% | 44% |
 | Consolidación ortodoxa | 0% | 51% | 97% | 36% | 52% | 37% |
 | Pro-inversión estable | 0% | 8% | 42% | 46% | 44% | 33% |
-| Reforma tributaria cada año | 84% | 98% | 99% | 50% | 57% | 39% |
+| Reforma tributaria cada año | 74% | 97% | 100% | 57% | 59% | 40% |
 
-Con crimen, incendios, epidemias y huelgas, el statu quo quiebra en 24% de las partidas. Sin esos sistemas (versión anterior, con 100 partidas) quebraba en 18%. Los choques de la vida urbana no quiebran un país sano, pero empujan a uno que ya tiene un déficit de 3% del PIB.
+Con crimen, incendios, epidemias y huelgas, y sin puente del multilateral, el statu quo quebraba en 24% de las partidas. El puente (sección 10) no salva a nadie que no corrija, pero corre el default uno o dos trimestres, y algunas partidas que iban a quebrar al final de los 8 años quiebran después: por eso la tasa baja a 18%. Los choques de la vida urbana no quiebran un país sano, pero empujan a uno que ya tiene un déficit de 3% del PIB.
 
 Cómo leerla:
 
-- **No hay un ganador limpio.** Lo que evita el default (consolidación, Estado mínimo) suele perder elecciones o subir la pobreza. La consolidación ortodoxa, además, provoca estallidos en la mitad de las partidas: los recortes desatan paros y el desempleo sube el crimen. Lo que más baja la pobreza (Estado grande con base formal) quiebra a uno de cada cuatro países.
+- **No hay un ganador limpio.** Lo que evita el default (consolidación, Estado mínimo) suele perder elecciones o subir la pobreza. La consolidación ortodoxa, además, provoca estallidos en la mitad de las partidas: los recortes desatan paros y el desempleo sube el crimen. Lo que más baja la pobreza (Estado grande con base formal) quiebra a uno de cada cinco países.
 - **Cómo se financia importa más que cuánto.** "Más impuestos y más gasto" y "Estado grande con base formal" gastan parecido. El primero sube nómina y salario mínimo, y la base se le va a la informalidad.
 - **La inestabilidad cuesta por sí sola.** Cambiar impuestos cada año, sin subirlos en promedio, quiebra al país 3 de cada 4 veces: sube el costo de capital y el riesgo percibido.
-- La pestaña *¿Qué palanca pesa más?* descompone cada paquete. Por ejemplo, subir transferencias 2,5 puntos del PIB sin financiarlas lleva por sí solo la tasa de default de 24% a 90%.
+- La pestaña *¿Qué palanca pesa más?* descompone cada paquete. Por ejemplo, subir transferencias 2,5 puntos del PIB sin financiarlas lleva por sí solo la tasa de default de 18% a 88%.
 
 Estos números dependen de los parámetros. El punto no es el número exacto, sino **por qué** sale.
 

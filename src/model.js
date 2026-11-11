@@ -444,15 +444,31 @@ function government(w, fl) {
   let interest = Debt.interestDue(w);
   let netNeed = disc + fixedSp + interest - revenue - monet;
   const q = Debt.quote(w, netNeed);
+  let bridged = 0;
   if (q.shortfall > 0 && d.status === 'normal' && q.shortfall > 0.4 * disc) {
-    Debt.declareDefault(w, 'nadie quiere refinanciar la deuda (crisis de rollover).');
-    interest = Debt.interestDue(w);
-    netNeed = disc + fixedSp + interest - revenue - monet;
+    // Antes del default, el multilateral presta de emergencia unos trimestres (como la línea flexible del FMI).
+    // Lo que no alcance a cubrir se recorta (hasta 40% del gasto discrecional); si ni así alcanza, default.
+    const room = Math.max(0, P.bridge.max * 4 * trendN - d.bridge);
+    if (d.bridgeQ < P.bridge.quarters && q.shortfall - room <= 0.4 * disc) {
+      bridged = Math.min(q.shortfall, room);
+      d.multi += bridged / m.fx;
+      d.bridge += bridged;
+      d.bridgeQ += 1;
+      q.shortfall -= bridged;
+      const left = Math.floor(P.bridge.quarters - d.bridgeQ);
+      w.log('crisis', `Los mercados se cierran: el multilateral presta de emergencia ${(100 * bridged / (4 * trendN)).toFixed(1)}% del PIB. ${left > 0 ? `Queda ${left} trimestre de puente` : 'Era el último trimestre de puente'} para cerrar el déficit.`);
+    } else {
+      Debt.declareDefault(w, d.bridgeQ > 0 ? 'se acabó el puente del multilateral y nadie refinancia la deuda.' : 'nadie quiere refinanciar la deuda (crisis de rollover).');
+      interest = Debt.interestDue(w);
+      netNeed = disc + fixedSp + interest - revenue - monet;
+    }
+  } else if (d.status === 'normal' && q.shortfall === 0) {
+    d.bridgeQ = Math.max(0, d.bridgeQ - P.bridge.regen);
   }
   let cut = 0, forced = 0;
   if (d.status === 'normal') {
     cut = Math.min(q.shortfall, 0.4 * disc);
-    Debt.issue(w, netNeed - cut, q);
+    Debt.issue(w, netNeed - cut - bridged, q);
   } else {
     const need = Math.max(0, netNeed);
     cut = Math.min(need, 0.4 * disc);
@@ -738,6 +754,10 @@ function record(w, fl, initial = false) {
     debtGDP: Debt.totalDebt(w) / (4 * gdpN),
     spread: d.status === 'normal' ? d.spread : null,
     pDefault: d.pConsensus,
+    cushion: d.cushion,
+    cushionDown: d.cushionDown,
+    bridgeQ: d.bridgeQ,
+    grievance: m.grievance,
     rating: d.rating,
     status: d.status,
     revenue: initial ? fl.taxReal / gdpR : fl.revenue / gdpN,

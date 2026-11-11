@@ -22,6 +22,7 @@
   </header>
 
   <nav class="g-tools" aria-label="Herramientas">
+    <button data-win="advisors" title="Asesores (A)" class="has-badge"><span>🧑‍💼</span>Asesores<em id="adv-badge" class="badge" hidden></em></button>
     <button data-win="budget" title="Presupuesto (B)"><span>💰</span>Presupuesto</button>
     <button data-win="laws" title="Leyes (L)"><span>⚖️</span>Leyes</button>
     <button data-win="debt" title="Deuda y bonos (D)"><span>🏦</span>Deuda</button>
@@ -65,6 +66,10 @@
     <header><h2>Presupuesto de la nación</h2><span class="win-note">El juego se pausa mientras lo editas</span><button class="x" data-close>✕</button></header>
     <div class="win-body" id="budget-body"></div>
   </div>
+  <div class="win chrome wide" id="win-advisors" hidden>
+    <header><h2>Consejo de asesores</h2><button class="x" data-close>✕</button></header>
+    <div class="win-body" id="advisors-body"></div>
+  </div>
   <div class="win chrome" id="win-laws" hidden>
     <header><h2>Leyes y decretos</h2><button class="x" data-close>✕</button></header>
     <div class="win-body" id="laws-body"></div>
@@ -75,7 +80,7 @@
   </div>
   <div class="win chrome wide" id="win-charts" hidden>
     <header><h2>Gráficas</h2><button class="x" data-close>✕</button></header>
-    <div class="win-body"><div id="chart-picks" class="chart-picks"></div><div class="chart-box"><canvas id="g-chart"></canvas></div></div>
+    <div class="win-body"><p id="chart-note" class="chart-note" hidden></p><div id="chart-picks" class="chart-picks"></div><div class="chart-box"><canvas id="g-chart"></canvas></div></div>
   </div>
   <div class="win chrome paper" id="win-news" hidden>
     <header><h2>La Gaceta del País</h2><button class="x" data-close>✕</button></header>
@@ -88,13 +93,14 @@
       <ul>
         <li><b>💰 Presupuesto:</b> impuestos y gasto (policía, bomberos, salud, educación, infraestructura, subsidios). Lo que no alcances a cobrar lo prestan los mercados… mientras quieran.</li>
         <li><b>⚖️ Leyes:</b> salario mínimo, trámites, emisión de dinero y cláusulas de la deuda.</li>
+        <li><b>🧑‍💼 Asesores:</b> cada uno vigila una señal temprana (déficit, colchón del mercado, malestar, crimen…). Cuando se pone amarilla o roja te avisan, y con «Ver en gráfica» ves la serie con su línea de alerta. En alarma roja el juego se pausa.</li>
         <li><b>🏦 Deuda:</b> quién te presta, a qué spread y qué hacer si dejas de pagar.</li>
         <li><b>Clic en una región:</b> ves sus datos y puedes darle <b>prioridad de inversión</b> (el total no cambia: se lo quitas a las demás).</li>
         <li><b>Capas:</b> colorean el mapa por desempleo, informalidad, crimen, salud, etc.</li>
         <li><b>Mover el mapa:</b> arrastra; zoom con la rueda, pellizcando con dos dedos, con los botones + − o con las teclas + − y 0.</li>
       </ul>
       <p>Lo que vas a ver: <b>🔥 incendios</b> si no hay bomberos, <b>🚨 olas de robos</b> cuando suben el desempleo y la pobreza o falta policía, <b>✚ epidemias</b> donde la salud es débil, <b>🚩 huelgas</b> cuando cae el salario real o recortas, y <b>camiones</b> de empresas que se mudan al vecino.</p>
-      <p>Cada 4 años hay elecciones: necesitas 40% de aprobación. El país quiebra si nadie te quiere refinanciar.</p>
+      <p>Cada 4 años hay elecciones: necesitas 40% de aprobación. Si los mercados se cierran, el multilateral te presta de emergencia hasta 2 trimestres; si en ese tiempo no corriges, el país quiebra.</p>
       <p class="muted">Las ecuaciones están en el <a href="lab.html">laboratorio</a>, pestaña «Modelo matemático».</p>
     </div>
   </div>

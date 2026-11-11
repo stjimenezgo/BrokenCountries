@@ -106,6 +106,7 @@ export const P = {
   initialDebtGDP: 0.55, multiShare: 0.12, fxShare: 0.35, maturityQ: 24,
   rf0: 0.04, inflTargetA: 0.03, worldInflQ: 0.005,
   maxSpread: 0.40,
+  bridge: { quarters: 2, max: 0.04, regen: 0.125 },  // línea de crédito flexible del multilateral (puente antes del default)
   // política
   electionEvery: 16,
   poverty0: 0.33,        // pobreza monetaria del año base

@@ -166,6 +166,27 @@ td.neg { color: var(--bad); } td.pos { color: var(--ok); }
 .crisis { display: grid; gap: 8px; background: var(--chrome-2); border-radius: 8px; padding: 10px; }
 .chart-picks { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 8px; font-size: 12px; }
 .chart-box { height: 340px; }
+.chart-note { background: var(--chrome-2); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; }
+
+/* asesores */
+.has-badge { position: relative; }
+.badge { position: absolute; top: 2px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; font: 700 10px/16px system-ui, sans-serif; font-style: normal; color: #111; background: var(--warn); }
+.badge.bad { background: var(--bad); color: #fff; }
+.advisors { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.adv { background: var(--chrome-2); border-radius: 8px; padding: 8px 10px; border-left: 4px solid var(--ok); display: flex; flex-direction: column; gap: 6px; }
+.adv.warn { border-left-color: var(--warn); } .adv.bad { border-left-color: var(--bad); }
+.adv-head { display: flex; align-items: center; gap: 6px; }
+.adv-head .ic { font-size: 18px; }
+.adv-head .dot { margin-left: auto; width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+.adv.warn .dot { background: var(--warn); } .adv.bad .dot { background: var(--bad); }
+.adv p { margin: 0; font-size: 12.5px; flex: 1; }
+.adv button { align-self: flex-start; font-size: 12px; }
+.toast.advice { pointer-events: auto; animation: toast-in 0.3s; border-left: 4px solid var(--ok); }
+.toast.advice.warn { border-left-color: var(--warn); } .toast.advice.bad { border-left-color: var(--bad); }
+.toast.advice .who { margin-bottom: 3px; }
+.toast.advice .acts { display: flex; justify-content: space-between; gap: 6px; margin-top: 6px; }
+.toast.advice .acts button { font-size: 11.5px; padding: 2px 8px; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
 .paper .win-body { background: var(--paper); color: var(--paper-ink); font-family: Georgia, "Times New Roman", serif; border-radius: 0 0 10px 10px; }
 .paper .masthead { text-align: center; border-bottom: 3px double var(--paper-ink); margin-bottom: 10px; padding-bottom: 6px; }

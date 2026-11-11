@@ -3,6 +3,7 @@ import { createWorld, step, setPolicy, actions } from '../model.js';
 import { DEFAULT_POLICY, LEVERS, TOGGLES, SECTORS, SECTOR_KEYS, LENDER_TYPES, P } from '../config.js';
 import { STRATEGIES } from '../experiments.js';
 import { IsoView } from './iso.js';
+import { advise } from './advisors.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -11,8 +12,9 @@ const num = (x, d = 0) => x.toLocaleString('es-CO', { maximumFractionDigits: d, 
 const lever = (k) => LEVERS.find((l) => l.key === k);
 const fmtLever = (l, v) => (l.unit === 'pct' ? pct(v, 0) : l.unit === 'pib' ? pct(v, 2) : l.unit === 'x' ? `${v.toFixed(2)}×` : v.toFixed(2));
 
-const SPEED_MS = { 1: 2600, 2: 1300, 3: 500 };
-const G = { w: null, speed: 0, resume: 2, last: 0, overlay: null, selected: null, chart: null, picks: new Set(['u', 'poverty', 'debtGDP', 'approval']), seenEvents: 0, flows: {}, ideology: '', preset: 'statu_quo', shownElection: new Set() };
+// Milisegundos por trimestre: lento para que alcance a leer las señales de los asesores.
+const SPEED_MS = { 1: 7000, 2: 3500, 3: 1200 };
+const G = { w: null, speed: 0, resume: 2, last: 0, overlay: null, selected: null, chart: null, picks: new Set(['u', 'poverty', 'debtGDP', 'approval']), seenEvents: 0, flows: {}, advice: [], adviceLevel: {}, saidAt: {}, pauseOnRed: true, refs: [], ideology: '', preset: 'statu_quo', shownElection: new Set() };
 
 const iso = new IsoView($('#iso'));
 
@@ -28,6 +30,9 @@ function newGame({ seed = 1, preset = 'statu_quo', ideology = '' } = {}) {
   G.flows = Object.fromEntries(SECTOR_KEYS.map((k) => [k, []]));
   G.shownElection.clear();
   iso.selected = G.selected = null;
+  G.advice = advise(G.w);
+  G.adviceLevel = Object.fromEntries(G.advice.map((a) => [a.id, a.level]));
+  G.saidAt = {};
   iso.sync(G.w);
   iso.fit();
   refresh();
@@ -46,6 +51,7 @@ function tick() {
   const fresh = w.events.slice(G.seenEvents);
   G.seenEvents = w.events.length;
   handleEvents(fresh);
+  updateAdvice();
   refresh();
   checkElection();
 }
@@ -87,6 +93,8 @@ function refresh() {
   if (!$('#win-debt').hidden) renderDebt();
   if (!$('#win-charts').hidden) renderChart();
   if (!$('#win-laws').hidden) renderLaws();
+  if (!$('#win-advisors').hidden) renderAdvisors();
+  renderAdviceBadge();
 }
 
 function renderDemand() {
@@ -304,6 +312,8 @@ function renderDebt() {
       <div class="card"><div class="k">Prob. de default (mercado)</div><div class="v">${pct(h.pDefault, 1)}</div></div>
     </div>
     <p><b>Estado:</b> ${status}${d.pledged ? ' · regalías pignoradas' : ''}</p>
+    ${h.cushion == null ? '' : `<p><b>Colchón del mercado:</b> compraría ${pct(h.cushion, 0)} de lo que hay que refinanciar; con una nota menos, ${pct(h.cushionDown, 0)}. Por debajo de 100% se cierra la puerta.</p>`}
+    <p><b>Puente del multilateral:</b> ${d.bridge > 0 ? `usado ${pct(d.bridge / (4 * w.macro.gdpTrendReal * w.macro.cpi), 1)} del PIB de ${pct(P.bridge.max, 0)}; ` : ''}${Math.max(0, Math.floor(P.bridge.quarters - d.bridgeQ))} de ${P.bridge.quarters} trimestres disponibles si se cierran los mercados.</p>
     <p class="hint">¿Quién tiene tus bonos? Cuando los conservadores se llenan o te bajan la nota, el spread sube y aparecen prestamistas con más apetito de riesgo… y después los fondos buitre.</p>
     <div class="lend-bar">${bar}</div>
     <div class="chips" style="margin-bottom:12px">${legend}</div>
@@ -316,6 +326,76 @@ function renderDebt() {
     </div>`;
 }
 
+// ------------------------------------------------------------ asesores
+
+const LEVEL = ['ok', 'warn', 'bad'];
+
+// Un asesor habla cuando su señal empeora; si llega a alarma roja, el juego se pausa (como los desastres de SimCity).
+function updateAdvice() {
+  G.advice = advise(G.w);
+  let red = false;
+  for (const a of G.advice) {
+    const prev = G.adviceLevel[a.id] ?? 0;
+    // Sin repetir: vuelve a hablar si la señal empeora más que la última vez o si pasaron dos años.
+    const said = G.saidAt[a.id];
+    if (a.level > prev && (!said || a.level > said.level || G.w.t - said.t >= 8)) {
+      speak(a);
+      G.saidAt[a.id] = { t: G.w.t, level: a.level };
+      if (a.level === 2) red = true;
+    }
+    G.adviceLevel[a.id] = a.level;
+  }
+  if (red && G.pauseOnRed && G.speed > 0) {
+    setSpeed(0);
+    setTicker(['⏸ Pausa: un asesor da alarma roja. Revisa sus gráficas, ajusta y pulsa ▶.']);
+  }
+}
+
+function speak(a) {
+  const el = document.createElement('div');
+  el.className = `toast advice ${LEVEL[a.level]}`;
+  el.innerHTML = `<div class="who">${a.icon} <b>${a.name}</b></div><div class="say"></div><div class="acts"><button data-chart="${a.id}">📈 Ver en gráfica</button><button data-dismiss>✕</button></div>`;
+  el.querySelector('.say').textContent = a.say;
+  $('#g-toasts').appendChild(el);
+  if (a.level < 2) setTimeout(() => el.remove(), 14000);
+  while ($('#g-toasts').children.length > 4) $('#g-toasts').firstChild.remove();
+}
+
+function renderAdviceBadge() {
+  const worst = Math.max(0, ...G.advice.map((a) => a.level));
+  const n = G.advice.filter((a) => a.level > 0).length;
+  const b = $('#adv-badge');
+  b.hidden = !n;
+  b.textContent = n;
+  b.className = `badge ${LEVEL[worst]}`;
+}
+
+function renderAdvisors() {
+  const order = [...G.advice].sort((a, b) => b.level - a.level);
+  $('#advisors-body').innerHTML = `
+    <p class="hint">Cada asesor mira una señal temprana del modelo. Amarillo es atención; rojo, alarma. «Ver en gráfica» abre las series que lo muestran, con la línea de alerta punteada.</p>
+    <div class="advisors">${order.map((a) => `
+      <div class="adv ${LEVEL[a.level]}">
+        <div class="adv-head"><span class="ic">${a.icon}</span><b>${a.name}</b><i class="dot"></i></div>
+        <p></p>
+        <button data-chart="${a.id}">📈 Ver en gráfica</button>
+      </div>`).join('')}</div>
+    <label class="tog"><input type="checkbox" id="pause-red" ${G.pauseOnRed ? 'checked' : ''}><span>Pausar el juego cuando un asesor da alarma roja</span></label>`;
+  $$('#advisors-body .adv p').forEach((p, i) => { p.textContent = order[i].say; });
+}
+
+function showAdvice(id) {
+  const a = G.advice.find((x) => x.id === id);
+  if (!a) return;
+  G.picks = new Set(a.series);
+  G.refs = a.refs;
+  for (const c of $$('#chart-picks input')) c.checked = G.picks.has(c.dataset.s);
+  $('#chart-note').innerHTML = '';
+  $('#chart-note').append(Object.assign(document.createElement('b'), { textContent: `${a.icon} ${a.name}: ` }), a.say);
+  $('#chart-note').hidden = false;
+  openWin('charts');
+}
+
 // ------------------------------------------------------------ gráficas
 
 const SERIES = [
@@ -323,6 +403,9 @@ const SERIES = [
   ['informality', 'Informalidad', '#a1887f'], ['poverty', 'Pobreza', '#ab47bc'], ['inflation', 'Inflación', '#ff9800'],
   ['debtGDP', 'Deuda/PIB', '#42a5f5'], ['spread', 'Spread', '#26c6da'], ['approval', 'Aprobación', '#66bb6a'],
   ['crime', 'Crimen (base = 100%)', '#e53935'], ['revenue', 'Recaudo/PIB', '#8d6e63'], ['deficit', 'Déficit/PIB', '#ec407a'],
+  ['cushion', 'Colchón del mercado', '#00e5ff'], ['cushionDown', 'Colchón con una nota menos', '#80deea'], ['pDefault', 'Prob. de default', '#ff5252'],
+  ['grievance', 'Malestar social', '#f06292'], ['monet', 'Emisión/PIB (trim.)', '#ffcc80'], ['sick', 'Población enferma', '#b39ddb'],
+  ['firms', 'Empresas activas', '#90a4ae', 'y1'], ['relocatedTotal', 'Empresas que se fueron (acum.)', '#ff7043', 'y1'],
 ];
 
 function buildChartPicks() {
@@ -330,6 +413,8 @@ function buildChartPicks() {
   $('#chart-picks').addEventListener('change', (e) => {
     const k = e.target.dataset.s;
     if (e.target.checked) G.picks.add(k); else G.picks.delete(k);
+    G.refs = [];
+    $('#chart-note').hidden = true;
     renderChart();
   });
 }
@@ -342,6 +427,9 @@ function renderChart() {
     data: h.map((r) => (r[k] == null ? null : axis ? r[k] : r[k] * 100)),
   }));
   const labels = h.map((r) => `A${Math.floor(r.t / 4) + 1}T${(r.t % 4) + 1}`);
+  for (const ref of G.refs) {
+    datasets.push({ label: ref.label, data: h.map(() => ref.v), borderColor: '#cfd8dc', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, yAxisID: 'y' });
+  }
   if (!G.chart) {
     Chart.defaults.color = '#a4afba';
     Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
@@ -354,7 +442,10 @@ function renderChart() {
   }
   G.chart.data.labels = labels;
   G.chart.data.datasets = datasets;
-  G.chart.options.scales.y1.display = G.picks.has('gdp');
+  const right = SERIES.filter(([k, , , axis]) => axis && G.picks.has(k)).map(([, label]) => label);
+  G.chart.options.scales.y1.display = right.length > 0;
+  G.chart.options.scales.y1.title.text = right.join(' · ');
+  G.chart.options.plugins.legend.display = G.refs.length > 0;
   G.chart.update();
 }
 
@@ -459,6 +550,7 @@ function openWin(name) {
   if (name === 'laws') renderLaws();
   if (name === 'debt') renderDebt();
   if (name === 'news') renderNews();
+  if (name === 'advisors') renderAdvisors();
   win.hidden = false;
   if (name === 'charts') renderChart();
   for (const b of $$('.g-tools button')) b.classList.toggle('on', b.dataset.win === name);
@@ -502,7 +594,11 @@ function init() {
     if (e.target.closest('[data-close]')) closeWins();
     const a = e.target.closest('[data-act]');
     if (a) act(a.dataset.act);
+    const c = e.target.closest('[data-chart]');
+    if (c) showAdvice(c.dataset.chart);
+    if (e.target.closest('[data-dismiss]') || c?.closest('.toast')) e.target.closest('.toast')?.remove();
   });
+  $('#advisors-body').addEventListener('change', (e) => { if (e.target.id === 'pause-red') G.pauseOnRed = e.target.checked; });
   bindControls($('#budget-body'), renderBudget);
   $('#laws-body').addEventListener('input', (e) => {
     const law = e.target.closest('.law[data-k]');
@@ -521,7 +617,7 @@ function init() {
     if (e.target.matches?.('input, select')) return;
     if (e.code === 'Space') { e.preventDefault(); setSpeed(G.speed ? 0 : G.resume); }
     if (e.key === 'Escape') closeWins();
-    const k = { b: 'budget', l: 'laws', d: 'debt', g: 'charts', p: 'news' }[e.key.toLowerCase()];
+    const k = { a: 'advisors', b: 'budget', l: 'laws', d: 'debt', g: 'charts', p: 'news' }[e.key.toLowerCase()];
     if (k) openWin(k);
     if (e.key === '+' || e.key === '=') iso.zoomBy(1.25);
     if (e.key === '-') iso.zoomBy(0.8);

@@ -31,6 +31,7 @@ export function initDebt(w) {
     spread: 0.022, status: 'normal', defaultSince: null, offers: 0, lastOffer: null,
     holdouts: 0, holdoutSince: null, reputation: 0, pledged: false,
     rating: 'BB+', pConsensus: 0.013,
+    cushion: null, cushionDown: null, bridge: 0, bridgeQ: 0,
     vulture: { cost: 0, face: 0, paid: 0 },
   };
   w.lenders = [];
@@ -105,9 +106,11 @@ export function quote(w, netNeed) {
   d.pConsensus = sigmoid(z);
   if (d.status === 'default') {
     d.rating = 'D';
+    d.cushion = d.cushionDown = null;
     return { s: P.maxSpread, shortfall: Math.max(0, netNeed), z };
   }
   d.rating = ratingFromP(d.pConsensus);
+  d.cushion = d.cushionDown = null;
   const MV = marketValue(w);
   const rollover = MV / P.maturityQ;
   const Nold = MV - rollover;
@@ -118,6 +121,16 @@ export function quote(w, netNeed) {
   const target = MV + netNeed;
   const demand = (s) => w.lenders.reduce((a, L) => a + desiredHolding(w, L, s, z), 0);
   const cap = demand(P.maxSpread);
+  // Colchón: cuánto de lo que hay que financiar compraría el mercado aunque pague el spread máximo.
+  // Con una nota menos, los mandatos obligan a vender: ahí está el precipicio de las crisis de rollover.
+  const down = RATINGS.findIndex(([, r]) => r === d.rating) + 1;
+  d.cushion = cap / Math.max(1e-9, target);
+  if (down > 0 && down < RATINGS.length) {
+    const r0 = d.rating;
+    d.rating = RATINGS[down][1];
+    d.cushionDown = demand(P.maxSpread) / Math.max(1e-9, target);
+    d.rating = r0;
+  } else d.cushionDown = d.cushion;
   if (cap >= target) {
     let lo = 0, hi = P.maxSpread;
     for (let it = 0; it < 40; it++) {

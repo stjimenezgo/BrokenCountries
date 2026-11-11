@@ -2,7 +2,7 @@
 
 Un juego tipo SimCity, con su laboratorio, para **intentar salvar la economía de un país latino** (una Colombia estilizada) y descubrir por qué la intuición suele fallar.
 
-- **El juego** (`index.html`): mapa isométrico donde cada edificio es una empresa del modelo. Presupuesto con partidas (policía, bomberos, salud, educación, infraestructura, subsidios), impuestos, leyes, bonos, capas del mapa, periódico, huelgas, incendios, olas de robos, epidemias y camiones de empresas que se mudan al vecino.
+- **El juego** (`index.html`): mapa isométrico donde cada edificio es una empresa del modelo. Presupuesto con partidas (policía, bomberos, salud, educación, infraestructura, subsidios), impuestos, leyes, bonos, capas del mapa, periódico, huelgas, incendios, olas de robos, epidemias y camiones de empresas que se mudan al vecino. Un consejo de asesores vigila las señales tempranas (déficit, colchón del mercado de deuda, malestar social, crimen…), avisa cuando se ponen amarillas o rojas y lleva a la gráfica que las muestra.
 - **El laboratorio** (`lab.html`): las mismas reglas con gráficas, el paradigma Estructura–Conducta–Desempeño, la curva de Laffer emergente, el Monte Carlo de la "tasa de países quebrados" y el documento matemático.
 
 Debajo corre un **modelo por agentes**:
